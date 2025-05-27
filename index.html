@@ -374,7 +374,14 @@
             });
         }
         
-        // 最適なシフトを作成（連続休憩を考慮）
+        // 同一時間帯での重複チェック関数
+        function isPersonAlreadyAssignedInTimeSlot(schedule, time, personName) {
+            if (!schedule[time]) return false;
+            
+            return Object.values(schedule[time]).includes(personName);
+        }
+        
+        // 最適なシフトを作成（重複配置防止版）
         function createOptimalSchedule(names, timeSlots) {
             const schedule = {};
             const workHours = {};
@@ -407,6 +414,17 @@
             timeSlots.forEach(time => {
                 schedule[time] = {};
                 
+                // 固定セルを先に設定
+                const fixedNamesInThisSlot = new Set();
+                positions.forEach((position, posIndex) => {
+                    const cellId = `${time}_${posIndex}`;
+                    if (fixedCells[cellId]) {
+                        schedule[time][position] = fixedCells[cellId];
+                        fixedNamesInThisSlot.add(fixedCells[cellId]);
+                    }
+                });
+                
+                // 各ポジションを処理
                 positions.forEach((position, posIndex) => {
                     const cellId = `${time}_${posIndex}`;
                     
@@ -415,38 +433,53 @@
                         return;
                     }
                     
-                    // 固定セルがある場合はそれを使用
+                    // 固定セルがある場合はスキップ
                     if (fixedCells[cellId]) {
-                        schedule[time][position] = fixedCells[cellId];
                         return;
                     }
                     
-                    // 休憩中の人を除外
+                    // この時間帯で利用可能な人のリストを作成
                     const availableNames = names.filter(name => {
+                        // 既にこの時間帯に配置されている場合は除外
+                        if (isPersonAlreadyAssignedInTimeSlot(schedule, time, name)) {
+                            return false;
+                        }
+                        
                         // 休憩時間中は除外
                         if (restSchedule[name] && restSchedule[name].includes(time)) {
                             return false;
                         }
-                        // 3時間連続制限
+                        
+                        // 3時間連続制限（緩和版）
                         return continuousWork[name][position] < 2;
                     });
                     
                     let assignedName;
+                    
                     if (availableNames.length === 0) {
-                        // 利用可能な人がいない場合は制限を緩和
-                        const fallbackNames = names.filter(name => {
-                            return !(restSchedule[name] && restSchedule[name].includes(time));
+                        // 利用可能な人がいない場合は制限を段階的に緩和
+                        
+                        // 第1段階：連続勤務制限のみ緩和
+                        const fallbackNames1 = names.filter(name => {
+                            return !isPersonAlreadyAssignedInTimeSlot(schedule, time, name) &&
+                                   !(restSchedule[name] && restSchedule[name].includes(time));
                         });
                         
-                        if (fallbackNames.length > 0) {
-                            const sortedNames = [...fallbackNames].sort((a, b) => workHours[a] - workHours[b]);
+                        if (fallbackNames1.length > 0) {
+                            const sortedNames = [...fallbackNames1].sort((a, b) => workHours[a] - workHours[b]);
                             assignedName = sortedNames[0];
-                            continuousWork[assignedName][position] = 0;
+                            continuousWork[assignedName][position] = 0; // 連続カウンターをリセット
                         } else {
-                            // 最後の手段：最も作業時間が少ない人
-                            const sortedAllNames = [...names].sort((a, b) => workHours[a] - workHours[b]);
-                            assignedName = sortedAllNames[0];
-                            continuousWork[assignedName][position] = 0;
+                            // 第2段階：休憩制限も緩和（ただし重複は絶対に避ける）
+                            const fallbackNames2 = names.filter(name => {
+                                return !isPersonAlreadyAssignedInTimeSlot(schedule, time, name);
+                            });
+                            
+                            if (fallbackNames2.length > 0) {
+                                const sortedNames = [...fallbackNames2].sort((a, b) => workHours[a] - workHours[b]);
+                                assignedName = sortedNames[0];
+                                continuousWork[assignedName][position] = 0;
+                            }
                         }
                     } else {
                         // 利用可能な人の中で最も作業時間が少ない人を選択
@@ -454,9 +487,11 @@
                         assignedName = sortedAvailableNames[0];
                     }
                     
-                    schedule[time][position] = assignedName;
-                    workHours[assignedName]++;
-                    continuousWork[assignedName][position]++;
+                    if (assignedName) {
+                        schedule[time][position] = assignedName;
+                        workHours[assignedName]++;
+                        continuousWork[assignedName][position]++;
+                    }
                 });
                 
                 // 連続カウンターの更新
