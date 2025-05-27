@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シフト表作成システム</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 10px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 100%;
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .btn:hover {
+            opacity: 0.8;
+        }
+        
+        .name-input-section {
+            margin-bottom: 20px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .shift-time-section {
+            margin-bottom: 20px;
+        }
+        
+        .shift-time-section h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .name-inputs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        
+        .name-input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 12px;
+            overflow-x: auto;
+            display: block;
+            white-space: nowrap;
+        }
+        
+        .schedule-table thead,
+        .schedule-table tbody {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+        }
+        
+        .schedule-table th,
+        .schedule-table td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            text-align: center;
+            min-width: 60px;
+        }
+        
+        .schedule-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .time-header {
+            background-color: #e9ecef !important;
+            font-weight: bold;
+        }
+        
+        .blocked-cell {
+            background-color: #000 !important;
+            color: #000;
+        }
+        
+        .editable-cell {
+            background-color: #fff;
+            cursor: pointer;
+        }
+        
+        .editable-cell:hover {
+            background-color: #f0f8ff;
+        }
+        
+        .fixed-cell {
+            background-color: #fffacd;
+        }
+        
+        .rest-time {
+            background-color: #e8f5e8 !important;
+        }
+        
+        input.cell-input {
+            width: 100%;
+            border: none;
+            background: transparent;
+            text-align: center;
+            font-size: 12px;
+            padding: 2px;
+            box-sizing: border-box;
+        }
+        
+        .stats {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .stats h3 {
+            margin-top: 0;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        @media (max-width: 768px) {
+            .schedule-table {
+                font-size: 10px;
+            }
+            
+            .schedule-table th,
+            .schedule-table td {
+                padding: 4px;
+                min-width: 50px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .btn {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>シフト表作成システム</h1>
+        
+        <div class="name-input-section">
+            <h3>作業者名入力</h3>
+            <div class="name-inputs" id="nameInputs">
+                <input type="text" class="name-input" placeholder="名前1" id="name1">
+                <input type="text" class="name-input" placeholder="名前2" id="name2">
+                <input type="text" class="name-input" placeholder="名前3" id="name3">
+                <input type="text" class="name-input" placeholder="名前4" id="name4">
+                <input type="text" class="name-input" placeholder="名前5" id="name5">
+                <input type="text" class="name-input" placeholder="名前6" id="name6">
+            </div>
+        </div>
+        
+        <div class="shift-time-section">
+            <h3>シフト時間帯選択</h3>
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" id="dayShift" checked> 
+                    08:00-20:00（日勤）
+                </label>
+                <label>
+                    <input type="checkbox" id="nightShift" checked> 
+                    20:00-08:00（夜勤）
+                </label>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" id="generateBtn">シフト作成</button>
+            <button class="btn btn-secondary" id="clearBtn">シフトクリア</button>
+        </div>
+        
+        <div style="overflow-x: auto;">
+            <table class="schedule-table" id="scheduleTable">
+                <thead>
+                    <tr>
+                        <th style="min-width: 80px;">時間</th>
+                        <th>中津1</th>
+                        <th>豊崎出口</th>
+                        <th>中津3</th>
+                    </tr>
+                </thead>
+                <tbody id="scheduleBody">
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="stats" id="stats">
+            <h3>勤務時間統計</h3>
+            <div id="statsContent">
+                シフトを作成すると統計が表示されます
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 時間帯の定義
+        const dayTimeSlots = [
+            '08:00-', '09:00-', '10:00-', '11:00-', '12:00-', '13:00-', '14:00-', 
+            '15:00-', '16:00-', '17:00-', '18:00-', '19:00-'
+        ];
+        
+        const nightTimeSlots = [
+            '20:00-', '21:00-', '22:00-', '23:00-', '00:00-', '01:00-', '02:00-', 
+            '03:00-', '04:00-', '05:00-', '06:00-', '07:00-'
+        ];
+        
+        const positions = ['中津1', '豊崎出口', '中津3'];
+        const blockedHours = ['00:00-', '01:00-', '02:00-', '03:00-', '04:00-']; // 豊崎出口がブロックされる時間
+        const restHours = ['00:00-', '01:00-', '02:00-', '03:00-', '04:00-']; // 連続休憩推奨時間
+        
+        let fixedCells = {}; // 固定セル情報を保存
+        
+        // 選択された時間スロットを取得
+        function getSelectedTimeSlots() {
+            const dayShiftChecked = document.getElementById('dayShift').checked;
+            const nightShiftChecked = document.getElementById('nightShift').checked;
+            
+            let timeSlots = [];
+            if (dayShiftChecked) {
+                timeSlots = timeSlots.concat(dayTimeSlots);
+            }
+            if (nightShiftChecked) {
+                timeSlots = timeSlots.concat(nightTimeSlots);
+            }
+            
+            return timeSlots;
+        }
+        
+        // テーブル初期化
+        function initializeTable() {
+            const tbody = document.getElementById('scheduleBody');
+            tbody.innerHTML = '';
+            
+            const timeSlots = getSelectedTimeSlots();
+            
+            timeSlots.forEach(time => {
+                const row = document.createElement('tr');
+                
+                // 時間セル
+                const timeCell = document.createElement('td');
+                timeCell.className = 'time-header';
+                timeCell.textContent = time;
+                timeCell.style.minWidth = '80px';
+                row.appendChild(timeCell);
+                
+                // ポジションセル
+                positions.forEach((position, posIndex) => {
+                    const cell = document.createElement('td');
+                    const cellId = `${time}_${posIndex}`;
+                    
+                    // 豊崎出口の特定時間帯をブロック
+                    if (position === '豊崎出口' && blockedHours.includes(time)) {
+                        cell.className = 'blocked-cell';
+                        cell.textContent = '';
+                    } else {
+                        cell.className = 'editable-cell';
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.className = 'cell-input';
+                        input.id = cellId;
+                        input.addEventListener('input', updateStats);
+                        cell.appendChild(input);
+                    }
+                    
+                    row.appendChild(cell);
+                });
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        // 名前のリストを取得
+        function getNameList() {
+            const names = [];
+            for (let i = 1; i <= 6; i++) {
+                const nameInput = document.getElementById(`name${i}`);
+                if (nameInput && nameInput.value.trim()) {
+                    names.push(nameInput.value.trim());
+                }
+            }
+            return names;
+        }
+        
+        // 固定セルの保存
+        function saveFixedCells() {
+            fixedCells = {};
+            const timeSlots = getSelectedTimeSlots();
+            
+            timeSlots.forEach(time => {
+                positions.forEach((position, posIndex) => {
+                    const cellId = `${time}_${posIndex}`;
+                    const input = document.getElementById(cellId);
+                    if (input && input.value.trim()) {
+                        fixedCells[cellId] = input.value.trim();
+                    }
+                });
+            });
+        }
+        
+        // 最適なシフトを作成（連続休憩を考慮）
+        function createOptimalSchedule(names, timeSlots) {
+            const schedule = {};
+            const workHours = {};
+            
+            // 作業時間カウンター初期化
+            names.forEach(name => {
+                workHours[name] = 0;
+            });
+            
+            // 固定セルの作業時間をカウント
+            Object.values(fixedCells).forEach(name => {
+                if (names.includes(name)) {
+                    workHours[name]++;
+                }
+            });
+            
+            // 連続休憩の管理
+            const restSchedule = planRestPeriods(names, timeSlots);
+            
+            // 連続作業時間を追跡
+            const continuousWork = {};
+            names.forEach(name => {
+                continuousWork[name] = {};
+                positions.forEach(position => {
+                    continuousWork[name][position] = 0;
+                });
+            });
+            
+            // 各時間帯でシフトを割り当て
+            timeSlots.forEach(time => {
+                schedule[time] = {};
+                
+                positions.forEach((position, posIndex) => {
+                    const cellId = `${time}_${posIndex}`;
+                    
+                    // ブロックされたセルはスキップ
+                    if (position === '豊崎出口' && blockedHours.includes(time)) {
+                        return;
+                    }
+                    
+                    // 固定セルがある場合はそれを使用
+                    if (fixedCells[cellId]) {
+                        schedule[time][position] = fixedCells[cellId];
+                        return;
+                    }
+                    
+                    // 休憩中の人を除外
+                    const availableNames = names.filter(name => {
+                        // 休憩時間中は除外
+                        if (restSchedule[name] && restSchedule[name].includes(time)) {
+                            return false;
+                        }
+                        // 3時間連続制限
+                        return continuousWork[name][position] < 2;
+                    });
+                    
+                    let assignedName;
+                    if (availableNames.length === 0) {
+                        // 利用可能な人がいない場合は制限を緩和
+                        const fallbackNames = names.filter(name => {
+                            return !(restSchedule[name] && restSchedule[name].includes(time));
+                        });
+                        
+                        if (fallbackNames.length > 0) {
+                            const sortedNames = [...fallbackNames].sort((a, b) => workHours[a] - workHours[b]);
+                            assignedName = sortedNames[0];
+                            continuousWork[assignedName][position] = 0;
+                        } else {
+                            // 最後の手段：最も作業時間が少ない人
+                            const sortedAllNames = [...names].sort((a, b) => workHours[a] - workHours[b]);
+                            assignedName = sortedAllNames[0];
+                            continuousWork[assignedName][position] = 0;
+                        }
+                    } else {
+                        // 利用可能な人の中で最も作業時間が少ない人を選択
+                        const sortedAvailableNames = [...availableNames].sort((a, b) => workHours[a] - workHours[b]);
+                        assignedName = sortedAvailableNames[0];
+                    }
+                    
+                    schedule[time][position] = assignedName;
+                    workHours[assignedName]++;
+                    continuousWork[assignedName][position]++;
+                });
+                
+                // 連続カウンターの更新
+                names.forEach(name => {
+                    positions.forEach(position => {
+                        if (!schedule[time][position] || schedule[time][position] !== name) {
+                            continuousWork[name][position] = 0;
+                        }
+                    });
+                });
+            });
+            
+            return schedule;
+        }
+        
+        // 連続休憩の計画
+        function planRestPeriods(names, timeSlots) {
+            const restSchedule = {};
+            const restPeriodLength = 3; // 3時間連続休憩を目標
+            
+            // 休憩時間帯のインデックスを取得
+            const restTimeIndices = [];
+            timeSlots.forEach((time, index) => {
+                if (restHours.includes(time)) {
+                    restTimeIndices.push(index);
+                }
+            });
+            
+            if (restTimeIndices.length === 0) {
+                return restSchedule;
+            }
+            
+            // 各人に休憩時間を割り当て
+            names.forEach((name, nameIndex) => {
+                restSchedule[name] = [];
+                
+                // 休憩開始時間をローテーション
+                const startOffset = nameIndex % (restTimeIndices.length - restPeriodLength + 1);
+                const startIndex = restTimeIndices[startOffset];
+                const endIndex = Math.min(startIndex + restPeriodLength, timeSlots.length);
+                
+                for (let i = startIndex; i < endIndex; i++) {
+                    if (i < timeSlots.length && restHours.includes(timeSlots[i])) {
+                        restSchedule[name].push(timeSlots[i]);
+                    }
+                }
+            });
+            
+            return restSchedule;
+        }
+        
+        // スケジュールをテーブルに適用
+        function applyScheduleToTable(schedule, timeSlots) {
+            timeSlots.forEach(time => {
+                positions.forEach((position, posIndex) => {
+                    const cellId = `${time}_${posIndex}`;
+                    const input = document.getElementById(cellId);
+                    
+                    if (input && schedule[time] && schedule[time][position]) {
+                        input.value = schedule[time][position];
+                        
+                        // 休憩時間の背景色
+                        if (restHours.includes(time)) {
+                            input.parentElement.classList.add('rest-time');
+                        }
+                        
+                        // 固定セルの場合は背景色を変更
+                        if (fixedCells[cellId]) {
+                            input.parentElement.classList.add('fixed-cell');
+                        } else {
+                            input.parentElement.classList.add('editable-cell');
+                        }
+                    }
+                });
+            });
+        }
+        
+        // シフト作成
+        function generateSchedule() {
+            const names = getNameList();
+            if (names.length < 3) {
+                alert('最低3人の名前を入力してください');
+                return;
+            }
+            
+            const timeSlots = getSelectedTimeSlots();
+            if (timeSlots.length === 0) {
+                alert('シフト時間帯を選択してください');
+                return;
+            }
+            
+            // 現在の固定セルを保存
+            saveFixedCells();
+            
+            // テーブルを再初期化
+            initializeTable();
+            
+            // シフト生成
+            const schedule = createOptimalSchedule(names, timeSlots);
+            
+            // テーブルに反映
+            applyScheduleToTable(schedule, timeSlots);
+            
+            // 統計更新
+            updateStats();
+        }
+        
+        // シフトクリア（完全修正版）
+        function clearSchedule() {
+            try {
+                // 固定セルをクリア
+                fixedCells = {};
+                
+                // 現在のテーブルから全ての入力をクリア
+                const inputs = document.querySelectorAll('.cell-input');
+                inputs.forEach(input => {
+                    input.value = '';
+                    // 親要素のクラスもリセット
+                    input.parentElement.className = 'editable-cell';
+                });
+                
+                // テーブル再初期化
+                setTimeout(() => {
+                    initializeTable();
+                    updateStats();
+                }, 100);
+                
+            } catch (error) {
+                console.log('クリア処理中にエラーが発生しましたが、処理を続行します');
+                // エラーが発生しても強制的にテーブルを再構築
+                initializeTable();
+                updateStats();
+            }
+        }
+        
+        // 統計更新
+        function updateStats() {
+            const names = getNameList();
+            if (names.length === 0) {
+                document.getElementById('statsContent').innerHTML = 'シフトを作成すると統計が表示されます';
+                return;
+            }
+            
+            const workHours = {};
+            const timeSlots = getSelectedTimeSlots();
+            
+            // 初期化
+            names.forEach(name => {
+                workHours[name] = 0;
+            });
+            
+            // 作業時間をカウント
+            timeSlots.forEach(time => {
+                positions.forEach((position, posIndex) => {
+                    const cellId = `${time}_${posIndex}`;
+                    const input = document.getElementById(cellId);
+                    
+                    if (input && input.value.trim()) {
+                        const name = input.value.trim();
+                        if (names.includes(name)) {
+                            workHours[name]++;
+                        }
+                    }
+                });
+            });
+            
+            // 統計表示
+            const statsContent = document.getElementById('statsContent');
+            let html = '';
+            
+            Object.entries(workHours).forEach(([name, hours]) => {
+                html += `<div class="stat-item"><span>${name}:</span><span>${hours}時間</span></div>`;
+            });
+            
+            if (html === '') {
+                html = 'シフトを作成すると統計が表示されます';
+            }
+            
+            statsContent.innerHTML = html;
+        }
+        
+        // イベントリスナーの設定
+        document.addEventListener('DOMContentLoaded', function() {
+            // テーブル初期化
+            initializeTable();
+            
+            // ボタンイベント
+            document.getElementById('generateBtn').addEventListener('click', generateSchedule);
+            document.getElementById('clearBtn').addEventListener('click', clearSchedule);
+            
+            // チェックボックスイベント
+            document.getElementById('dayShift').addEventListener('change', function() {
+                initializeTable();
+                updateStats();
+            });
+            
+            document.getElementById('nightShift').addEventListener('change', function() {
+                initializeTable();
+                updateStats();
+            });
+        });
+    </script>
+</body>
+</html>
